@@ -43,7 +43,7 @@ a {
 
 @font-face {
   font-family: "FarNazanin"; /* Use consistent naming */
-  src: url("./Far_Nazanin.ttf") format("truetype"); /* Correct path */
+  src: url("../public/Far_Nazanin.ttf") format("truetype"); /* Correct path */
   font-weight: normal;
   font-style: normal;
 }
