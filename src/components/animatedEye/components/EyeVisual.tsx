@@ -1,7 +1,8 @@
 import React from "react";
 import { Box } from "@mui/material";
 import { EyeVisualProps } from "../types";
-
+import skyImg from "@/assets/sky.jpg";
+import infernoImg from "@/assets/inferno.jpg";
 interface ExtendedEyeVisualProps extends EyeVisualProps {
   isAngry?: boolean;
   isResetting?: boolean;
@@ -80,7 +81,7 @@ export function EyeVisual({
             left: 0,
             width: "100%",
             height: "100%",
-            backgroundImage: "url(/asset/sky.jpg)",
+            backgroundImage: `url(${skyImg})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             opacity: showSky ? 1 : 0,
@@ -96,7 +97,7 @@ export function EyeVisual({
             left: 0,
             width: "100%",
             height: "100%",
-            backgroundImage: "url(/asset/inferno.jpg)",
+            backgroundImage: `url(${infernoImg})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             opacity: showInferno ? 1 : 0,

@@ -17,7 +17,7 @@ import { usePupilMovement } from "./hooks/usePupilMovement";
 import { useInputFocus } from "./hooks/useInputFocus";
 import { generateRandomPupilPosition } from "./utils/positionUtils";
 import AudioVisualizer from "./components/AudioVisualizer";
-
+import soundFile from "@/assets/sound.mp3";
 interface ExtendedProps extends AnimatedEyeProps {
   showSnackbar?: (
     msg: string,
@@ -205,7 +205,7 @@ export default function AnimatedEyes({
     setClickCount(0);
     stopIdleBehavior();
 
-    const newAudio = new Audio("/asset/sound.mp3");
+    const newAudio = new Audio(soundFile);
     newAudio.crossOrigin = "anonymous";
     newAudio.currentTime = 0;
     newAudio.volume = 1.0;
