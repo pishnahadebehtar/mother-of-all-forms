@@ -107,7 +107,6 @@ export function EyeVisual({
         />
       </Box>
 
-      {/* Top lid (Rotates when Angry) */}
       <Box
         sx={{
           position: "absolute",
