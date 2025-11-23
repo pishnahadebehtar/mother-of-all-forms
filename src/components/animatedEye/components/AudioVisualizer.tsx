@@ -9,6 +9,20 @@ interface AudioVisualizerProps {
 interface WindowWithWebkit extends Window {
   webkitAudioContext: typeof AudioContext;
 }
+// Helper for rounded rectangles
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  if (height < radius * 2) radius = height / 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.fill();
+}
 
 export default function AudioVisualizer({
   audioElement,
@@ -115,21 +129,6 @@ export default function AudioVisualizer({
       cancelAnimationFrame(animationRef.current);
     };
   }, [isActive, audioElement]);
-
-  // Helper for rounded rectangles
-  function drawRoundedRect(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number
-  ) {
-    if (height < radius * 2) radius = height / 2;
-    ctx.beginPath();
-    ctx.roundRect(x, y, width, height, radius);
-    ctx.fill();
-  }
 
   return (
     <Box
