@@ -97,7 +97,7 @@ export default function AnimatedEyes({
     const audio = new Audio(soundFile);
     audio.preload = "auto";
 
-    // Attempt to load immediately upon mount to buffer in background
+    // Attempt to load immediately upon mount
     audio.load();
 
     const onCanPlay = () => setIsAudioReady(true);
@@ -132,10 +132,9 @@ export default function AnimatedEyes({
       // After 30 seconds, unlock the angry state
       timer = setTimeout(() => {
         setIsMobileWarmup(false);
-        console.log("Mobile warmup complete. Angry state unlocked.");
       }, 30000);
     } else {
-      // Desktop is always ready (subject to audio check)
+      // Desktop is always ready
       setTimeout(() => setIsMobileWarmup(false), 0);
     }
 
@@ -239,16 +238,12 @@ export default function AnimatedEyes({
     const audio = audioObjRef.current;
     if (!audio) return;
 
-    // DESKTOP: Keep Strict Ready Check
+    // DESKTOP: Strict Ready Check
     if (!isMobile && !isAudioReady && audio.readyState < 3) {
       showSnackbar?.("در حال بارگذاری صدا...", "info");
       audio.load();
       return;
     }
-
-    // MOBILE: If we are here, the warmup timer has passed.
-    // We assume 30s was enough for the background load.
-    // We skip strict checks to ensure animation starts.
 
     setIsAngry(true);
     setClickCount(0);
@@ -309,7 +304,6 @@ export default function AnimatedEyes({
     setClickCount(newCount);
 
     if (newCount < 3) {
-      // Just blink on 1st and 2nd click
       performBlink();
     } else {
       // --- TRIGGER LOGIC (3rd Click) ---
@@ -317,17 +311,15 @@ export default function AnimatedEyes({
       if (isMobile) {
         // MOBILE LOGIC
         if (isMobileWarmup) {
-          // 30s Timer is still running.
-          // IGNORE TRIGGER: Do nothing, just blink, reset count to 0.
+          // 30s Timer is still running. IGNORE TRIGGER.
           performBlink();
           setClickCount(0);
         } else {
-          // 30s Timer passed.
-          // INSTANT START.
+          // 30s Timer passed. INSTANT START.
           startAngrySequence();
         }
       } else {
-        // DESKTOP LOGIC (Original Strict Behavior)
+        // DESKTOP LOGIC (Strict Check)
         if (
           audioObjRef.current &&
           (isAudioReady || audioObjRef.current.readyState >= 3)
@@ -482,7 +474,8 @@ export default function AnimatedEyes({
         flexDirection: "column",
         justifyContent: "flex-start",
         alignItems: "center",
-        minHeight: "70vh",
+        // FIXED: Height optimization for mobile
+        minHeight: { xs: "50vh", md: "70vh" },
         backgroundColor: "black",
         p: 2,
         gap: 2,
@@ -568,16 +561,10 @@ export default function AnimatedEyes({
             mb: 0,
             width: "100%",
             visibility: isAngry ? "hidden" : "visible",
-            // Responsive Font Size
+            // FIXED: Font Size Optimization
             fontSize: {
-              xs: "1.75rem", // Mobile: ~28px (Much smaller/readable)
-              sm: "2.25rem", // Tablet
-              md: "3rem", // Desktop: ~48px (Original h3 size)
-            },
-            // Optional: Adjust line height for better mobile stacking
-            lineHeight: {
-              xs: 1.4,
-              md: 1.167,
+              xs: "1.75rem",
+              md: "3rem",
             },
           }}
           dir="rtl"
