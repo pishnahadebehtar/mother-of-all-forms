@@ -1,8 +1,9 @@
 import React from "react";
 import { Box } from "@mui/material";
 import { EyeVisualProps } from "../types";
-import skyImg from "@/assets/sky.jpg";
-import infernoImg from "@/assets/inferno.jpg";
+
+// REMOVED: Imports of sky/inferno images from here.
+// We will receive them as props now.
 
 interface ExtendedEyeVisualProps extends EyeVisualProps {
   isAngry?: boolean;
@@ -13,6 +14,9 @@ interface ExtendedEyeVisualProps extends EyeVisualProps {
   isLeft?: boolean;
   onClick?: () => void;
   isMobile?: boolean;
+  // NEW PROPS for preloaded assets
+  skyImageSrc?: string;
+  infernoImageSrc?: string;
 }
 
 export function EyeVisual({
@@ -29,9 +33,10 @@ export function EyeVisual({
   isLeft = false,
   onClick,
   isMobile = false,
+  skyImageSrc, // <--- Receive here
+  infernoImageSrc, // <--- Receive here
 }: ExtendedEyeVisualProps) {
   const scleraMargin = size * 0.025;
-
   const lidTransitionDuration = isResetting ? "3s" : isAngry ? "1s" : "0.3s";
 
   let topLidTransform = topTransform;
@@ -60,7 +65,6 @@ export function EyeVisual({
         position: "relative",
         overflow: "hidden",
         cursor: "pointer",
-        // FIXED: Prevent mobile browsers from dimming the eye container
         isolation: "isolate",
         filter: "none",
       }}
@@ -73,50 +77,52 @@ export function EyeVisual({
           left: scleraMargin,
           width: size - 2 * scleraMargin,
           height: size - 2 * scleraMargin,
-          background: "#FFFFFF", // Explicit Hex White
+          background: "#FFFFFF",
           borderRadius: "50%",
           zIndex: 0,
           overflow: "hidden",
-          // FIXED: Force brightness on mobile (stops auto-dimming)
           filter: "brightness(100%) contrast(100%)",
-          boxShadow: "inset 0 0 20px rgba(0,0,0,0.5)", // Inner shadow for depth instead of dimness
+          boxShadow: "inset 0 0 20px rgba(0,0,0,0.5)",
         }}
       >
-        {/* Sky Image */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundImage: `url(${skyImg})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            opacity: showSky ? 1 : 0,
-            transition: "opacity 1s ease-in-out",
-            zIndex: 1,
-            // FIXED: Ensure image renders vividly
-            mixBlendMode: "normal",
-          }}
-        />
-        {/* Inferno Image */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundImage: `url(${infernoImg})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            opacity: showInferno ? 1 : 0,
-            transition: "opacity 1s ease-in-out",
-            zIndex: 2,
-            mixBlendMode: "normal",
-          }}
-        />
+        {/* Sky Image - Only render if source is available */}
+        {skyImageSrc && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundImage: `url(${skyImageSrc})`, // Use Prop
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              opacity: showSky ? 1 : 0,
+              transition: "opacity 1s ease-in-out",
+              zIndex: 1,
+              mixBlendMode: "normal",
+            }}
+          />
+        )}
+        {/* Inferno Image - Only render if source is available */}
+        {infernoImageSrc && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundImage: `url(${infernoImageSrc})`, // Use Prop
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              opacity: showInferno ? 1 : 0,
+              transition: "opacity 1s ease-in-out",
+              zIndex: 2,
+              mixBlendMode: "normal",
+            }}
+          />
+        )}
       </Box>
 
       {/* Top lid */}

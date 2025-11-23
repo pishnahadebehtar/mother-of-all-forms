@@ -73,6 +73,7 @@ export function InputSection({
         gap: 1,
         alignItems: "center",
         // FIXED: Force 100% width regardless of parent padding
+
         width: "100%",
         maxWidth: "100%",
         boxSizing: "border-box",

@@ -20,11 +20,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         justifyContent: "center",
         alignItems: "center",
         mb: 4,
-        gap: { xs: 1, sm: 2 }, // Smaller gap on mobile
+        p: 2,
+        gap: 3, // Smaller gap on mobile
         width: "100%",
         maxWidth: "100%", // Force full width matching InputSection
         boxSizing: "border-box",
-        px: 0, // Remove padding to align with Input edges
       }}
     >
       {[

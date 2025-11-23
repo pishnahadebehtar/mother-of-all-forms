@@ -18,7 +18,7 @@ import { useInputFocus } from "./hooks/useInputFocus";
 import { generateRandomPupilPosition } from "./utils/positionUtils";
 import AudioVisualizer from "./components/AudioVisualizer";
 
-// IMPORT ASSETS
+// Import assets
 import soundFile from "@/assets/sound.mp3";
 import skyImg from "@/assets/sky.jpg";
 import infernoImg from "@/assets/inferno.jpg";
@@ -61,7 +61,16 @@ export default function AnimatedEyes({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatVisible, setChatVisible] = useState(false);
+
+  // Fixed: Use state for rendering the visualizer prop
   const [activeAudio, setActiveAudio] = useState<HTMLAudioElement | null>(null);
+
+  // Asset State
+  const [skyBlobUrl, setSkyBlobUrl] = useState<string | undefined>(undefined);
+  const [infernoBlobUrl, setInfernoBlobUrl] = useState<string | undefined>(
+    undefined
+  );
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
 
   const [clickCount, setClickCount] = useState(0);
   const [isAngry, setIsAngry] = useState(false);
@@ -80,16 +89,60 @@ export default function AnimatedEyes({
     }
   }, [isAngry, onAngryStateChange]);
 
-  // --- PRELOAD ASSETS ON MOUNT (This was missing) ---
+  // --- ROBUST ASSET PRELOADING ---
   useEffect(() => {
-    const audio = new Audio(soundFile);
-    audio.preload = "auto";
-    audio.load();
-    audioObjRef.current = audio;
+    let isMounted = true;
+    const loadAssets = async () => {
+      try {
+        // 1. Load Audio
+        const audioResponse = await fetch(soundFile);
+        const audioBlob = await audioResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const audio = new Audio(audioUrl);
+        audio.preload = "auto";
+        audio.load();
+
+        // Store in ref for imperative logic
+        audioObjRef.current = audio;
+
+        // 2. Load Images
+        const skyRes = await fetch(skyImg);
+        const skyBlob = await skyRes.blob();
+        const skyUrl = URL.createObjectURL(skyBlob);
+
+        const infernoRes = await fetch(infernoImg);
+        const infernoBlob = await infernoRes.blob();
+        const infernoUrl = URL.createObjectURL(infernoBlob);
+
+        if (isMounted) {
+          setSkyBlobUrl(skyUrl);
+          setInfernoBlobUrl(infernoUrl);
+          // Fixed: Set the state for the visualizer once, and keep it.
+          setActiveAudio(audio);
+          setAssetsLoaded(true);
+        }
+      } catch (err) {
+        console.error("Failed to preload assets:", err);
+        // Fallback
+        if (isMounted) {
+          const audio = new Audio(soundFile);
+          audioObjRef.current = audio;
+          setActiveAudio(audio); // Fallback state set
+          setSkyBlobUrl(skyImg);
+          setInfernoBlobUrl(infernoImg);
+          setAssetsLoaded(true);
+        }
+      }
+    };
+
+    loadAssets();
 
     return () => {
-      audio.pause();
-      audioObjRef.current = null;
+      isMounted = false;
+      if (audioObjRef.current) {
+        audioObjRef.current.pause();
+      }
     };
   }, []);
 
@@ -102,21 +155,18 @@ export default function AnimatedEyes({
     openEyes,
     squintEyes,
   } = useBlink();
-
   const {
     pupilRef: pupilRef1,
     updatePupilPosition: updatePupilPosition1,
     handleMouseMove: handleMouseMove1,
     setPupilOffset: setPupilOffset1,
   } = usePupilMovement({ size, eyeRef: eyeRef1, isFocused });
-
   const {
     pupilRef: pupilRef2,
     updatePupilPosition: updatePupilPosition2,
     handleMouseMove: handleMouseMove2,
     setPupilOffset: setPupilOffset2,
   } = usePupilMovement({ size, eyeRef: eyeRef2, isFocused });
-
   const { inputValue, handleInput, updatePupilToInput } = useInputFocus({
     updatePupilPosition: (x: number, y: number) => {
       if (isAngry || isResetting) return;
@@ -128,32 +178,18 @@ export default function AnimatedEyes({
     isFocused,
   });
 
-  // --- HELPER FUNCTIONS ---
+  // --- HELPERS ---
   const stopIdleBehavior = useCallback(() => {
-    if (idleStartTimeout.current) {
-      clearTimeout(idleStartTimeout.current);
-      idleStartTimeout.current = null;
-    }
-    if (idleMoveInterval.current) {
-      clearInterval(idleMoveInterval.current);
-      idleMoveInterval.current = null;
-    }
-    if (idleBlinkInterval.current) {
-      clearInterval(idleBlinkInterval.current);
-      idleBlinkInterval.current = null;
-    }
+    if (idleStartTimeout.current) clearTimeout(idleStartTimeout.current);
+    if (idleMoveInterval.current) clearInterval(idleMoveInterval.current);
+    if (idleBlinkInterval.current) clearInterval(idleBlinkInterval.current);
   }, []);
 
   const startIdleBehavior = useCallback(() => {
     setPupilOffset1(0, 0, "0.5s");
     if (!isMobile) setPupilOffset2(0, 0, "0.5s");
-
     stopIdleBehavior();
-
-    idleBlinkInterval.current = setInterval(() => {
-      doubleBlink();
-    }, 2000);
-
+    idleBlinkInterval.current = setInterval(() => doubleBlink(), 2000);
     idleStartTimeout.current = setTimeout(() => {
       if (!mouseOutRef.current) return;
       const move = () => {
@@ -185,12 +221,13 @@ export default function AnimatedEyes({
     if (audioObjRef.current) {
       audioObjRef.current.pause();
       audioObjRef.current.currentTime = 0;
-      setActiveAudio(null);
     }
+
+    // Fixed: Do NOT clear activeAudio state here.
+    // We keep the connection alive for the next time.
 
     sequenceTimeouts.current.forEach((t) => clearTimeout(t));
     sequenceTimeouts.current = [];
-
     openEyes();
 
     setTimeout(() => {
@@ -201,56 +238,55 @@ export default function AnimatedEyes({
   }, [startIdleBehavior, stopIdleBehavior, openEyes]);
 
   const startAngrySequence = useCallback(() => {
+    const audio = audioObjRef.current;
+
+    if (!audio || audio.readyState < 3) {
+      // Fallback: try to play anyway if readyState is flaky on some mobile browsers
+      if (!audio) {
+        showSnackbar?.("فایل صوتی هنوز آماده نیست...", "warning");
+        return;
+      }
+    }
+
     setIsAngry(true);
     setClickCount(0);
     stopIdleBehavior();
 
-    // Use the preloaded audio ref
-    const audio = audioObjRef.current;
-    if (audio) {
-      audio.currentTime = 0;
-      audio.volume = 1.0;
-      setActiveAudio(audio);
-      audio.play().catch((e) => {
-        if (e.name !== "AbortError") console.error(e);
+    audio.currentTime = 0;
+    audio.volume = 1.0;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((e) => {
+        if (e.name !== "AbortError") console.error("Audio play failed:", e);
       });
     }
 
     setPupilOffset1(0, 0, "0.5s");
     if (!isMobile) setPupilOffset2(0, 0, "0.5s");
 
-    const t1 = setTimeout(() => setGlintState("flash"), 2000);
-    const t2 = setTimeout(() => setGlintState("normal"), 2300);
-    const t3 = setTimeout(() => setGlintState("growing"), 3000);
-    const t4 = setTimeout(() => setShowSky(true), 7000);
-    const t4_hide = setTimeout(() => setShowSky(false), 11000);
-    const t5_inf = setTimeout(() => setShowInferno(true), 13000);
-    const t5_inf_hide = setTimeout(() => setShowInferno(false), 20000);
-    const t6 = setTimeout(() => setIsTightSquint(true), 23700);
-    const t_fade = setTimeout(() => {
-      if (audio) {
-        const fadeInterval = setInterval(() => {
-          if (audio.volume > 0.05) audio.volume -= 0.05;
-          else {
-            audio.volume = 0;
-            clearInterval(fadeInterval);
-          }
-        }, 100);
-      }
-    }, 28000);
-    const t7 = setTimeout(() => resetNormalState(), 31000);
-
     sequenceTimeouts.current.push(
-      t1,
-      t2,
-      t3,
-      t4,
-      t4_hide,
-      t5_inf,
-      t5_inf_hide,
-      t6,
-      t_fade,
-      t7
+      setTimeout(() => setGlintState("flash"), 2000),
+      setTimeout(() => setGlintState("normal"), 2300),
+      setTimeout(() => setGlintState("growing"), 3000),
+      setTimeout(() => setShowSky(true), 7000),
+      setTimeout(() => setShowSky(false), 11000),
+      setTimeout(() => setShowInferno(true), 13000),
+      setTimeout(() => setShowInferno(false), 20000),
+      setTimeout(() => setIsTightSquint(true), 23700),
+      setTimeout(() => {
+        if (audio) {
+          const fadeInterval = setInterval(() => {
+            if (audio.volume > 0.05) audio.volume -= 0.05;
+            else {
+              audio.volume = 0;
+              audio.pause();
+              clearInterval(fadeInterval);
+            }
+          }, 100);
+        }
+      }, 28000),
+      setTimeout(() => resetNormalState(), 31000)
     );
   }, [
     stopIdleBehavior,
@@ -258,17 +294,37 @@ export default function AnimatedEyes({
     isMobile,
     setPupilOffset1,
     setPupilOffset2,
+    showSnackbar,
   ]);
 
   const handleEyeClick = useCallback(() => {
     if (isAngry || isResetting) return;
+
     const newCount = clickCount + 1;
     setClickCount(newCount);
-    if (newCount < 3) performBlink();
-    else startAngrySequence();
-  }, [clickCount, isAngry, isResetting, performBlink, startAngrySequence]);
 
-  // Mouse Event Listeners
+    if (newCount < 3) {
+      performBlink();
+    } else {
+      // Allow starting if loaded OR if we have the ref (readyState check inside startAngrySequence handles details)
+      if (assetsLoaded && audioObjRef.current) {
+        startAngrySequence();
+      } else {
+        showSnackbar?.("در حال آماده‌سازی صدا...", "info");
+        setClickCount(2);
+      }
+    }
+  }, [
+    clickCount,
+    isAngry,
+    isResetting,
+    performBlink,
+    startAngrySequence,
+    assetsLoaded,
+    showSnackbar,
+  ]);
+
+  // Mouse Events
   const onMouseMove = useCallback(
     (event: MouseEvent) => {
       if (isAngry || isResetting) return;
@@ -324,17 +380,6 @@ export default function AnimatedEyes({
     onVisibilityChange,
     stopIdleBehavior,
   ]);
-
-  useEffect(() => {
-    return () => {
-      sequenceTimeouts.current.forEach((t) => clearTimeout(t));
-      if (audioObjRef.current) {
-        audioObjRef.current.pause();
-        audioObjRef.current = null;
-        setActiveAudio(null);
-      }
-    };
-  }, []);
 
   const getEyelidTransforms = () => {
     if (isTightSquint)
@@ -418,12 +463,6 @@ export default function AnimatedEyes({
       }}
       dir="rtl"
     >
-      {/* PRELOADING IMAGES: Forces browser to download images immediately */}
-      <div style={{ display: "none" }}>
-        <img src={skyImg} alt="preload" />
-        <img src={infernoImg} alt="preload" />
-      </div>
-
       {loading && (
         <Box
           sx={{
@@ -466,6 +505,8 @@ export default function AnimatedEyes({
           onClick={handleEyeClick}
           isLeft={true}
           isMobile={isMobile}
+          skyImageSrc={skyBlobUrl}
+          infernoImageSrc={infernoBlobUrl}
         />
         {!isMobile && (
           <EyeVisual
@@ -482,6 +523,8 @@ export default function AnimatedEyes({
             onClick={handleEyeClick}
             isLeft={false}
             isMobile={isMobile}
+            skyImageSrc={skyBlobUrl}
+            infernoImageSrc={infernoBlobUrl}
           />
         )}
       </Box>
@@ -516,48 +559,44 @@ export default function AnimatedEyes({
           alignItems: "center",
         }}
       >
-        {isAngry ? (
-          <Fade in={true} timeout={1000}>
-            <Box
-              sx={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "center",
-                mt: 2,
-              }}
-            >
-              <AudioVisualizer audioElement={activeAudio} isActive={isAngry} />
-            </Box>
-          </Fade>
-        ) : (
-          <Fade in={true} timeout={1000}>
-            <Box sx={{ width: "100%" }}>
-              <InputSection
-                inputRef={inputRef}
-                value={inputValue}
-                onChange={handleInput}
-                onClick={handleClick}
-                onNewMessage={handleNewMessage}
-                isLoading={isLoading}
-                setIsLoading={setIsLoading}
-                loadHistory={loadHistory}
-                showSnackbar={showSnackbar}
-              />
-              <Box
-                sx={{
-                  width: "100%",
-                  height: chatVisible ? 200 : 0,
-                  overflow: "hidden",
-                  transition: "height 0.5s ease",
-                  mb: 2,
-                }}
-              >
-                <ChatHistory messages={messages} isLoading={isLoading} />
-              </Box>
-            </Box>
-          </Fade>
-        )}
+        {/* Fixed: Use state variable 'activeAudio' */}
+        <Box
+          sx={{
+            width: "100%",
+            display: isAngry ? "flex" : "none",
+            justifyContent: "center",
+            mt: 2,
+          }}
+        >
+          <AudioVisualizer audioElement={activeAudio} isActive={isAngry} />
+        </Box>
+
+        <Box sx={{ width: "100%", display: !isAngry ? "block" : "none" }}>
+          <InputSection
+            inputRef={inputRef}
+            value={inputValue}
+            onChange={handleInput}
+            onClick={handleClick}
+            onNewMessage={handleNewMessage}
+            isLoading={isLoading}
+            setIsLoading={setIsLoading}
+            loadHistory={loadHistory}
+            showSnackbar={showSnackbar}
+          />
+          <Box
+            sx={{
+              width: "100%",
+              height: chatVisible ? 200 : 0,
+              overflow: "hidden",
+              transition: "height 0.5s ease",
+              mb: 2,
+            }}
+          >
+            <ChatHistory messages={messages} isLoading={isLoading} />
+          </Box>
+        </Box>
       </Box>
+
       <canvas ref={canvasRef} style={{ display: "none" }} />
     </Box>
   );
