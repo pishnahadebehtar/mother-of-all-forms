@@ -16,12 +16,15 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
     <Box
       sx={{
         display: "flex",
-        flexDirection: { xs: "column", sm: "row" },
+        flexDirection: { xs: "column", sm: "row" }, // Column on mobile
         justifyContent: "center",
         alignItems: "center",
         mb: 4,
-        gap: 2,
+        gap: { xs: 1, sm: 2 }, // Smaller gap on mobile
         width: "100%",
+        maxWidth: "100%", // Force full width matching InputSection
+        boxSizing: "border-box",
+        px: 0, // Remove padding to align with Input edges
       }}
     >
       {[
@@ -39,8 +42,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             textTransform: "none",
             px: 3,
             py: 1.5,
-            width: { xs: "100%", sm: "auto" },
-            // FIXED: Force aggressive colors to fight mobile dimming
+            width: { xs: "100%", sm: "auto" }, // Full width on mobile
+            // Force visibility colors
             backgroundColor: "#FFC400 !important",
             color: "#000000 !important",
             filter: "brightness(100%) contrast(100%)",

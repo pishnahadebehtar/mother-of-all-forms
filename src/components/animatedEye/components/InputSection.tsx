@@ -36,11 +36,8 @@ export function InputSection({
     const poll = async () => {
       await loadHistory();
       pollCount++;
-      if (pollCount < maxPolls) {
-        setTimeout(poll, 1000);
-      } else {
-        showSnackbar?.("پاسخ با تأخیر دریافت شد یا خطایی رخ داد", "warning");
-      }
+      if (pollCount < maxPolls) setTimeout(poll, 1000);
+      else showSnackbar?.("پاسخ با تأخیر دریافت شد یا خطایی رخ داد", "warning");
     };
     setTimeout(poll, 1000);
   };
@@ -75,9 +72,11 @@ export function InputSection({
         display: "flex",
         gap: 1,
         alignItems: "center",
+        // FIXED: Force 100% width regardless of parent padding
         width: "100%",
-        maxWidth: "100%", // FIXED: Ensure full width on mobile
+        maxWidth: "100%",
         boxSizing: "border-box",
+        px: { xs: 0, sm: 0 }, // Ensure no internal padding on mobile
       }}
     >
       <IconButton
@@ -92,7 +91,10 @@ export function InputSection({
           "&:hover": { bgcolor: "#E6B800" },
           "&:disabled": { bgcolor: "#666", opacity: 0.7 },
           order: -1,
-          flexShrink: 0, // Prevent button squishing
+          flexShrink: 0,
+          // Fix dimming on mobile
+          filter: "brightness(100%) contrast(100%)",
+          isolation: "isolate",
         }}
       >
         {isLoading ? (
@@ -117,7 +119,7 @@ export function InputSection({
           }
         }}
         sx={{
-          flexGrow: 1, // Take remaining space
+          flexGrow: 1,
           "& .MuiOutlinedInput-root": {
             borderRadius: 28,
             backgroundColor: "grey.800",

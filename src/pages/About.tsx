@@ -1,43 +1,39 @@
-import { Box, Typography } from "@mui/material";
-import { Link } from "react-router-dom"; // Changed from next/link
-import AnimatedEye from "@/components/animatedEye/AnimatedEye";
+import { Box, Typography, Container } from "@mui/material";
 
 export default function AboutPage() {
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "100vh",
-        p: 2,
-        gap: 4,
-        backgroundColor: "black",
-        color: "white",
-        direction: "rtl",
-      }}
-      dir="rtl"
-    >
-      <AnimatedEye size={200} />
-      <Box sx={{ textAlign: "center", maxWidth: 600 }}>
-        <Typography variant="h4" gutterBottom>
-          درباره پروژه
+    <Container maxWidth="sm">
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "80vh",
+          textAlign: "center",
+          gap: 3,
+          color: "white",
+        }}
+      >
+        <Typography
+          variant="h4"
+          sx={{ fontWeight: "bold", color: "#FFC400", mt: 2 }}
+        >
+          درباره ما
         </Typography>
-        <Typography variant="body1" paragraph>
-          این یک سازنده فرم پویا با React و Appwrite است. با استفاده از این
-          ابزار، می‌توانید فرم‌های سفارشی بسازید، رکوردها ایجاد کنید و لیست‌ها
-          را مشاهده نمایید.
+
+        <Typography variant="body1" sx={{ lineHeight: 2, fontSize: "1.1rem" }}>
+          این پروژه با هدف ساده‌سازی فرآیند ساخت فرم‌های پیچیده و مدیریت داده‌ها
+          طراحی شده است.
+          <br />
+          با استفاده از هوش مصنوعی، شما می‌توانید ساختارهای داده‌ای خود را تنها
+          با گفتگو ایجاد کنید.
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          ویژگی‌ها: چت هوشمند، تم تاریک RTL، و پشتیبانی از فیلدهای متنوع.
+
+        <Typography variant="body2" sx={{ color: "grey.500", mt: 4 }}>
+          نسخه ۱.۰.۰
         </Typography>
       </Box>
-      <Link to="/" style={{ textDecoration: "none" }}>
-        <Typography variant="body2" color="primary">
-          بازگشت به صفحه اصلی
-        </Typography>
-      </Link>
-    </Box>
+    </Container>
   );
 }
