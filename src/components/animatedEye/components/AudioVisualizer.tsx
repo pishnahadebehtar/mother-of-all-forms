@@ -58,7 +58,7 @@ export default function AudioVisualizer({
 
         // Create Gain Node (Amplifier)
         const gainNode = audioCtx.createGain();
-        gainNode.gain.value = 3; // <--- 1.5x Volume (150%)
+        gainNode.gain.value = 10; // <--- 1.5x Volume (150%)
 
         sourceRef.current = audioCtx.createMediaElementSource(audioElement);
 
