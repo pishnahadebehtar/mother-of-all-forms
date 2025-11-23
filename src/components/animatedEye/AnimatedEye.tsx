@@ -90,49 +90,29 @@ export default function AnimatedEyes({
   }, [isAngry, onAngryStateChange]);
 
   // --- ROBUST ASSET PRELOADING ---
+
   useEffect(() => {
     let isMounted = true;
     const loadAssets = async () => {
       try {
-        // 1. Load Audio
-        const audioResponse = await fetch(soundFile);
-        const audioBlob = await audioResponse.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-
-        const audio = new Audio(audioUrl);
+        // FIX: Don't fetch blob. Just use the imported path directly.
+        // Vite handles the path resolution including the base URL.
+        const audio = new Audio(soundFile);
         audio.preload = "auto";
-        audio.load();
+        // We don't call audio.load() immediately to save bandwidth until interaction
 
-        // Store in ref for imperative logic
+        // Store in ref
         audioObjRef.current = audio;
 
-        // 2. Load Images
-        const skyRes = await fetch(skyImg);
-        const skyBlob = await skyRes.blob();
-        const skyUrl = URL.createObjectURL(skyBlob);
-
-        const infernoRes = await fetch(infernoImg);
-        const infernoBlob = await infernoRes.blob();
-        const infernoUrl = URL.createObjectURL(infernoBlob);
-
+        // 2. Load Images (Images are fine as blobs or direct, but direct is safer)
         if (isMounted) {
-          setSkyBlobUrl(skyUrl);
-          setInfernoBlobUrl(infernoUrl);
-          // Fixed: Set the state for the visualizer once, and keep it.
+          setSkyBlobUrl(skyImg); // Use direct import path
+          setInfernoBlobUrl(infernoImg); // Use direct import path
           setActiveAudio(audio);
           setAssetsLoaded(true);
         }
       } catch (err) {
-        console.error("Failed to preload assets:", err);
-        // Fallback
-        if (isMounted) {
-          const audio = new Audio(soundFile);
-          audioObjRef.current = audio;
-          setActiveAudio(audio); // Fallback state set
-          setSkyBlobUrl(skyImg);
-          setInfernoBlobUrl(infernoImg);
-          setAssetsLoaded(true);
-        }
+        console.error("Failed to setup assets:", err);
       }
     };
 
@@ -240,28 +220,33 @@ export default function AnimatedEyes({
   const startAngrySequence = useCallback(() => {
     const audio = audioObjRef.current;
 
-    if (!audio || audio.readyState < 3) {
-      // Fallback: try to play anyway if readyState is flaky on some mobile browsers
-      if (!audio) {
-        showSnackbar?.("فایل صوتی هنوز آماده نیست...", "warning");
-        return;
-      }
+    if (!audio) {
+      // Simple check only
+      showSnackbar?.("فایل صوتی یافت نشد", "warning");
+      return;
     }
 
     setIsAngry(true);
     setClickCount(0);
     stopIdleBehavior();
 
-    audio.currentTime = 0;
-    audio.volume = 1.0;
-
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((e) => {
-        if (e.name !== "AbortError") console.error("Audio play failed:", e);
-      });
+    try {
+      audio.currentTime = 0;
+      audio.volume = 1.0;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          console.error("Audio play blocked:", e);
+          // Audio context might need to be resumed on user gesture
+          showSnackbar?.(
+            "لطفا دوباره کلیک کنید (مرورگر صدا را مسدود کرد)",
+            "info"
+          );
+        });
+      }
+    } catch (e) {
+      console.error(e);
     }
-
     setPupilOffset1(0, 0, "0.5s");
     if (!isMobile) setPupilOffset2(0, 0, "0.5s");
 
