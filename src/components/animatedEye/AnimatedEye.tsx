@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -17,7 +17,12 @@ import { usePupilMovement } from "./hooks/usePupilMovement";
 import { useInputFocus } from "./hooks/useInputFocus";
 import { generateRandomPupilPosition } from "./utils/positionUtils";
 import AudioVisualizer from "./components/AudioVisualizer";
+
+// IMPORT ASSETS
 import soundFile from "@/assets/sound.mp3";
+import skyImg from "@/assets/sky.jpg";
+import infernoImg from "@/assets/inferno.jpg";
+
 interface ExtendedProps extends AnimatedEyeProps {
   showSnackbar?: (
     msg: string,
@@ -37,8 +42,6 @@ export default function AnimatedEyes({
 }: ExtendedProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isTablet = useMediaQuery(theme.breakpoints.between("md", "lg"));
-  const isDesktop = useMediaQuery(theme.breakpoints.up("lg"));
 
   // --- REFS ---
   const eyeRef1 = useRef<HTMLDivElement | null>(null);
@@ -58,11 +61,8 @@ export default function AnimatedEyes({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatVisible, setChatVisible] = useState(false);
-
-  // New State for Audio Visualizer
   const [activeAudio, setActiveAudio] = useState<HTMLAudioElement | null>(null);
 
-  // Angry Mode State
   const [clickCount, setClickCount] = useState(0);
   const [isAngry, setIsAngry] = useState(false);
   const [isTightSquint, setIsTightSquint] = useState(false);
@@ -79,6 +79,19 @@ export default function AnimatedEyes({
       onAngryStateChange(isAngry);
     }
   }, [isAngry, onAngryStateChange]);
+
+  // --- PRELOAD ASSETS ON MOUNT (This was missing) ---
+  useEffect(() => {
+    const audio = new Audio(soundFile);
+    audio.preload = "auto";
+    audio.load();
+    audioObjRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audioObjRef.current = null;
+    };
+  }, []);
 
   // --- HOOKS ---
   const {
@@ -160,11 +173,8 @@ export default function AnimatedEyes({
     stopIdleBehavior,
   ]);
 
-  // --- RESET LOGIC ---
   const resetNormalState = useCallback(() => {
     setIsResetting(true);
-
-    // Reset props
     setIsAngry(false);
     setIsTightSquint(false);
     setShowSky(false);
@@ -173,13 +183,8 @@ export default function AnimatedEyes({
     setClickCount(0);
 
     if (audioObjRef.current) {
-      try {
-        audioObjRef.current.pause();
-        audioObjRef.current.currentTime = 0;
-      } catch (e) {
-        console.warn(e);
-      }
-      audioObjRef.current = null;
+      audioObjRef.current.pause();
+      audioObjRef.current.currentTime = 0;
       setActiveAudio(null);
     }
 
@@ -188,71 +193,51 @@ export default function AnimatedEyes({
 
     openEyes();
 
-    // Wait 5 seconds (2s delay + 3s transition)
     setTimeout(() => {
       setIsResetting(false);
-      if (mouseOutRef.current) {
-        startIdleBehavior();
-      } else {
-        stopIdleBehavior();
-      }
+      if (mouseOutRef.current) startIdleBehavior();
+      else stopIdleBehavior();
     }, 5000);
   }, [startIdleBehavior, stopIdleBehavior, openEyes]);
 
-  // --- ANGRY SEQUENCE ---
   const startAngrySequence = useCallback(() => {
     setIsAngry(true);
     setClickCount(0);
     stopIdleBehavior();
 
-    const newAudio = new Audio(soundFile);
-    newAudio.crossOrigin = "anonymous";
-    newAudio.currentTime = 0;
-    newAudio.volume = 1.0;
-
-    audioObjRef.current = newAudio;
-    setActiveAudio(newAudio);
-
-    newAudio.play().catch((e) => {
-      if (e.name !== "AbortError") console.error(e);
-    });
+    // Use the preloaded audio ref
+    const audio = audioObjRef.current;
+    if (audio) {
+      audio.currentTime = 0;
+      audio.volume = 1.0;
+      setActiveAudio(audio);
+      audio.play().catch((e) => {
+        if (e.name !== "AbortError") console.error(e);
+      });
+    }
 
     setPupilOffset1(0, 0, "0.5s");
     if (!isMobile) setPupilOffset2(0, 0, "0.5s");
 
-    // --- TIMINGS ---
     const t1 = setTimeout(() => setGlintState("flash"), 2000);
     const t2 = setTimeout(() => setGlintState("normal"), 2300);
     const t3 = setTimeout(() => setGlintState("growing"), 3000);
-
-    // 7s: Show Sky
     const t4 = setTimeout(() => setShowSky(true), 7000);
-    // 8s: Hide Sky
     const t4_hide = setTimeout(() => setShowSky(false), 11000);
-
-    // 10s: Show Inferno
     const t5_inf = setTimeout(() => setShowInferno(true), 13000);
-    // 12s: Hide Inferno
     const t5_inf_hide = setTimeout(() => setShowInferno(false), 20000);
-
-    // 15.0s: Tight Squint
-    const t6 = setTimeout(() => {
-      setIsTightSquint(true);
-    }, 23700);
+    const t6 = setTimeout(() => setIsTightSquint(true), 23700);
     const t_fade = setTimeout(() => {
-      const audio = audioObjRef.current;
       if (audio) {
         const fadeInterval = setInterval(() => {
-          if (audio.volume > 0.05) {
-            audio.volume -= 0.05;
-          } else {
+          if (audio.volume > 0.05) audio.volume -= 0.05;
+          else {
             audio.volume = 0;
             clearInterval(fadeInterval);
           }
         }, 100);
       }
     }, 28000);
-    // 16s: End Sequence
     const t7 = setTimeout(() => resetNormalState(), 31000);
 
     sequenceTimeouts.current.push(
@@ -275,25 +260,18 @@ export default function AnimatedEyes({
     setPupilOffset2,
   ]);
 
-  // --- INTERACTION ---
   const handleEyeClick = useCallback(() => {
     if (isAngry || isResetting) return;
-
     const newCount = clickCount + 1;
     setClickCount(newCount);
-
-    if (newCount < 3) {
-      performBlink();
-    } else {
-      startAngrySequence();
-    }
+    if (newCount < 3) performBlink();
+    else startAngrySequence();
   }, [clickCount, isAngry, isResetting, performBlink, startAngrySequence]);
 
-  // --- MOUSE LOGIC ---
+  // Mouse Event Listeners
   const onMouseMove = useCallback(
     (event: MouseEvent) => {
       if (isAngry || isResetting) return;
-
       if (mouseOutRef.current) {
         mouseOutRef.current = false;
         stopIdleBehavior();
@@ -327,7 +305,6 @@ export default function AnimatedEyes({
     else onMouseEnter();
   }, [onMouseEnter, onMouseLeave]);
 
-  // --- EFFECTS ---
   useEffect(() => {
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseleave", onMouseLeave);
@@ -359,26 +336,16 @@ export default function AnimatedEyes({
     };
   }, []);
 
-  // --- RENDER HELPERS ---
   const getEyelidTransforms = () => {
-    if (isTightSquint) {
+    if (isTightSquint)
       return { top: "translateY(-30%)", bottom: "translateY(50%)" };
-    }
-    if (isAngry) {
-      return { top: "translateY(-30%)", bottom: "translateY(70%)" };
-    }
+    if (isAngry) return { top: "translateY(-30%)", bottom: "translateY(70%)" };
     return { top: topTransform, bottom: bottomTransform };
   };
 
   const { top: currentTop, bottom: currentBottom } = getEyelidTransforms();
+  const getEyeGap = () => (isMobile ? 0 : 6);
 
-  const getEyeGap = () => {
-    if (isDesktop) return 6;
-    if (isTablet) return 4;
-    return 0;
-  };
-
-  // Input Handlers...
   const handleFocus = useCallback(() => {
     if (isAngry || isResetting) return;
     setIsFocused(true);
@@ -410,7 +377,6 @@ export default function AnimatedEyes({
     (newMsg: ChatMessage) => {
       setMessages((prev) => {
         const updated = [...prev, newMsg];
-        // Fixed: Set visibility directly in handler, not useEffect
         if (updated.length > 0) setChatVisible(true);
         return updated;
       });
@@ -419,30 +385,22 @@ export default function AnimatedEyes({
     [onChatRefresh]
   );
 
-  // Fixed: Removed redundant useEffect watching messages.length
-
   const loadHistory = useCallback(async () => {
     try {
       const typedHistory = await getChatMessages();
       setMessages(typedHistory);
-      // Fixed: Set visibility directly after data load
       if (typedHistory.length > 0) setChatVisible(true);
     } catch {
       showSnackbar?.("خطا در بارگذاری چت", "error");
     }
   }, [showSnackbar]);
 
-  // Fixed: Wrapped in async IIFE to avoid synchronous set-state warning
   useEffect(() => {
-    const init = async () => {
-      await loadHistory();
-    };
+    const init = async () => await loadHistory();
     init();
   }, [loadHistory]);
 
-  const handleClick = useCallback(() => {
-    performBlink();
-  }, [performBlink]);
+  const handleClick = useCallback(() => performBlink(), [performBlink]);
 
   return (
     <Box
@@ -460,6 +418,12 @@ export default function AnimatedEyes({
       }}
       dir="rtl"
     >
+      {/* PRELOADING IMAGES: Forces browser to download images immediately */}
+      <div style={{ display: "none" }}>
+        <img src={skyImg} alt="preload" />
+        <img src={infernoImg} alt="preload" />
+      </div>
+
       {loading && (
         <Box
           sx={{
@@ -501,9 +465,8 @@ export default function AnimatedEyes({
           glintState={glintState}
           onClick={handleEyeClick}
           isLeft={true}
-          isMobile={isMobile} // <--- ADDED THIS
+          isMobile={isMobile}
         />
-
         {!isMobile && (
           <EyeVisual
             size={size}
@@ -518,7 +481,7 @@ export default function AnimatedEyes({
             glintState={glintState}
             onClick={handleEyeClick}
             isLeft={false}
-            isMobile={isMobile} // <--- ADDED THIS
+            isMobile={isMobile}
           />
         )}
       </Box>

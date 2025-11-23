@@ -99,3 +99,13 @@ a {
 ::-webkit-scrollbar-corner {
   background: #000000;
 }
+/* Mobile specific: Hide scrollbars completely but allow scrolling */
+@media (max-width: 600px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+}

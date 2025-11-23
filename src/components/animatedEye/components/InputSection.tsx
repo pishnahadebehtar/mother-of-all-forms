@@ -2,7 +2,7 @@ import React from "react";
 import { Box, TextField, IconButton, CircularProgress } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import type { ChatMessage } from "./ChatHistory";
-import { agent } from "@/lib/agent"; // Changed Import
+import { agent } from "@/lib/agent";
 
 interface InputSectionProps {
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -33,13 +33,9 @@ export function InputSection({
   const startPollingForAssistantResponse = () => {
     let pollCount = 0;
     const maxPolls = 30;
-
     const poll = async () => {
       await loadHistory();
       pollCount++;
-
-      // Stop if we have found new messages (naive check handled by parent usually,
-      // but here we just poll a few times to sync state)
       if (pollCount < maxPolls) {
         setTimeout(poll, 1000);
       } else {
@@ -51,14 +47,10 @@ export function InputSection({
 
   const handleSend = async () => {
     if (!value.trim() || isLoading) return;
-
-    onClick(); // Blink eyes
+    onClick();
     setIsLoading(true);
-
     try {
-      // REPLACED: fetch("/api/agent") -> agent(value)
       const result = await agent(value);
-
       if (result && result.text_answer) {
         onNewMessage({ role: "assistant", text: result.text_answer });
       } else {
@@ -84,7 +76,8 @@ export function InputSection({
         gap: 1,
         alignItems: "center",
         width: "100%",
-        maxWidth: 800,
+        maxWidth: "100%", // FIXED: Ensure full width on mobile
+        boxSizing: "border-box",
       }}
     >
       <IconButton
@@ -99,6 +92,7 @@ export function InputSection({
           "&:hover": { bgcolor: "#E6B800" },
           "&:disabled": { bgcolor: "#666", opacity: 0.7 },
           order: -1,
+          flexShrink: 0, // Prevent button squishing
         }}
       >
         {isLoading ? (
@@ -123,6 +117,7 @@ export function InputSection({
           }
         }}
         sx={{
+          flexGrow: 1, // Take remaining space
           "& .MuiOutlinedInput-root": {
             borderRadius: 28,
             backgroundColor: "grey.800",
