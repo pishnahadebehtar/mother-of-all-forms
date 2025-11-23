@@ -568,6 +568,17 @@ export default function AnimatedEyes({
             mb: 0,
             width: "100%",
             visibility: isAngry ? "hidden" : "visible",
+            // Responsive Font Size
+            fontSize: {
+              xs: "1.75rem", // Mobile: ~28px (Much smaller/readable)
+              sm: "2.25rem", // Tablet
+              md: "3rem", // Desktop: ~48px (Original h3 size)
+            },
+            // Optional: Adjust line height for better mobile stacking
+            lineHeight: {
+              xs: 1.4,
+              md: 1.167,
+            },
           }}
           dir="rtl"
         >
