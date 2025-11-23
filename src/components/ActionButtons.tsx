@@ -17,21 +17,26 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
     <Box
       sx={{
         display: "flex",
+        // FIXED: Column on mobile (xs), Row on tablet/desktop (sm)
+        flexDirection: { xs: "column", sm: "row" },
         justifyContent: "center",
         alignItems: "center",
         mb: 4,
-        gap: 2, // Even spacing between buttons
-        flexWrap: "wrap", // Responsive wrap on small screens
+        gap: 2,
+        width: "100%", // Ensure container takes full width
       }}
     >
       <Button
         variant="contained"
         onClick={onFormTypes}
         sx={{
-          borderRadius: 50, // Completely round edges (pill-shaped)
-          fontWeight: 700, // Bolder text
-          textTransform: "none", // Optional: Prevent uppercase transformation for cleaner look
-          px: 3, // Extra horizontal padding for rounder feel
+          borderRadius: 50,
+          fontWeight: 700,
+          textTransform: "none",
+          px: 3,
+          py: 1.5, // Taller buttons for easier tapping
+          // FIXED: Full width on mobile
+          width: { xs: "100%", sm: "auto" },
         }}
       >
         مدیریت انواع فرم
@@ -40,10 +45,13 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         variant="contained"
         onClick={onCreateRecord}
         sx={{
-          borderRadius: 50, // Completely round edges (pill-shaped)
-          fontWeight: 700, // Bolder text
-          textTransform: "none", // Optional: Prevent uppercase transformation for cleaner look
-          px: 3, // Extra horizontal padding for rounder feel
+          borderRadius: 50,
+          fontWeight: 700,
+          textTransform: "none",
+          px: 3,
+          py: 1.5,
+          // FIXED: Full width on mobile
+          width: { xs: "100%", sm: "auto" },
         }}
       >
         ایجاد رکورد
@@ -52,10 +60,13 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         variant="contained"
         onClick={onList}
         sx={{
-          borderRadius: 50, // Completely round edges (pill-shaped)
-          fontWeight: 700, // Bolder text
-          textTransform: "none", // Optional: Prevent uppercase transformation for cleaner look
-          px: 3, // Extra horizontal padding for rounder feel
+          borderRadius: 50,
+          fontWeight: 700,
+          textTransform: "none",
+          px: 3,
+          py: 1.5,
+          // FIXED: Full width on mobile
+          width: { xs: "100%", sm: "auto" },
         }}
       >
         مشاهده لیست

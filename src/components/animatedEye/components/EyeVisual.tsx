@@ -3,14 +3,16 @@ import { Box } from "@mui/material";
 import { EyeVisualProps } from "../types";
 import skyImg from "@/assets/sky.jpg";
 import infernoImg from "@/assets/inferno.jpg";
+
 interface ExtendedEyeVisualProps extends EyeVisualProps {
   isAngry?: boolean;
   isResetting?: boolean;
   showSky?: boolean;
   showInferno?: boolean;
   glintState?: "normal" | "flash" | "growing";
-  isLeft?: boolean; // NEW PROP: To determine rotation direction
+  isLeft?: boolean;
   onClick?: () => void;
+  isMobile?: boolean;
 }
 
 export function EyeVisual({
@@ -24,22 +26,23 @@ export function EyeVisual({
   showSky = false,
   showInferno = false,
   glintState = "normal",
-  isLeft = false, // Default to right/false
+  isLeft = false,
   onClick,
+  isMobile = false,
 }: ExtendedEyeVisualProps) {
   const scleraMargin = size * 0.025;
 
   const lidTransitionDuration = isResetting ? "3s" : isAngry ? "1s" : "0.3s";
 
-  // --- Eyelid Rotation Logic ---
-  // Normal/Resetting: No rotation
-  // Angry: Rotate inward (Left -> 20deg, Right -> -20deg)
-  // We also Scale(1.2) to ensure the rotated rectangle covers the corners fully.
   let topLidTransform = topTransform;
 
   if (isAngry && !isResetting) {
-    const rotation = isLeft ? "20deg" : "-20deg";
-    topLidTransform = `${topTransform} rotate(${rotation}) scale(1.2)`;
+    if (isMobile) {
+      topLidTransform = `${topTransform} scale(1.2)`;
+    } else {
+      const rotation = isLeft ? "20deg" : "-20deg";
+      topLidTransform = `${topTransform} rotate(${rotation}) scale(1.2)`;
+    }
   }
 
   return (
@@ -57,6 +60,9 @@ export function EyeVisual({
         position: "relative",
         overflow: "hidden",
         cursor: "pointer",
+        // FIXED: Prevent mobile browsers from dimming the eye container
+        isolation: "isolate",
+        filter: "none",
       }}
     >
       {/* Sclera */}
@@ -67,10 +73,13 @@ export function EyeVisual({
           left: scleraMargin,
           width: size - 2 * scleraMargin,
           height: size - 2 * scleraMargin,
-          background: "white",
+          background: "#FFFFFF", // Explicit Hex White
           borderRadius: "50%",
           zIndex: 0,
           overflow: "hidden",
+          // FIXED: Force brightness on mobile (stops auto-dimming)
+          filter: "brightness(100%) contrast(100%)",
+          boxShadow: "inset 0 0 20px rgba(0,0,0,0.5)", // Inner shadow for depth instead of dimness
         }}
       >
         {/* Sky Image */}
@@ -87,6 +96,8 @@ export function EyeVisual({
             opacity: showSky ? 1 : 0,
             transition: "opacity 1s ease-in-out",
             zIndex: 1,
+            // FIXED: Ensure image renders vividly
+            mixBlendMode: "normal",
           }}
         />
         {/* Inferno Image */}
@@ -103,10 +114,12 @@ export function EyeVisual({
             opacity: showInferno ? 1 : 0,
             transition: "opacity 1s ease-in-out",
             zIndex: 2,
+            mixBlendMode: "normal",
           }}
         />
       </Box>
 
+      {/* Top lid */}
       <Box
         sx={{
           position: "absolute",
@@ -115,8 +128,8 @@ export function EyeVisual({
           width: "100%",
           height: "50%",
           background: "black",
-          transform: topLidTransform, // Applied calculated transform
-          transformOrigin: "bottom center", // Rotate around the equator of the eye
+          transform: topLidTransform,
+          transformOrigin: "bottom center",
           transition: `transform ${lidTransitionDuration} ease-in-out`,
           zIndex: 3,
           pointerEvents: "none",
@@ -162,7 +175,6 @@ function Pupil({
   isAngry: boolean;
   isResetting: boolean;
 }) {
-  // --- Glint Logic ---
   let glintColor = "white";
   let scale = 1.2;
 

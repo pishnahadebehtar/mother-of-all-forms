@@ -501,6 +501,7 @@ export default function AnimatedEyes({
           glintState={glintState}
           onClick={handleEyeClick}
           isLeft={true}
+          isMobile={isMobile} // <--- ADDED THIS
         />
 
         {!isMobile && (
@@ -517,6 +518,7 @@ export default function AnimatedEyes({
             glintState={glintState}
             onClick={handleEyeClick}
             isLeft={false}
+            isMobile={isMobile} // <--- ADDED THIS
           />
         )}
       </Box>
