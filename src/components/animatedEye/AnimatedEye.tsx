@@ -81,8 +81,9 @@ export default function AnimatedEyes({
   const [glintState, setGlintState] = useState<"normal" | "flash" | "growing">(
     "normal"
   );
-  // NEW STATE: To block clicks during the 30s mobile wait
-  const [isWaitingMobile, setIsWaitingMobile] = useState(false);
+
+  // NEW: Mobile Warmup State
+  const [isMobileWarmup, setIsMobileWarmup] = useState(isMobile);
 
   // Notify parent
   useEffect(() => {
@@ -91,25 +92,25 @@ export default function AnimatedEyes({
     }
   }, [isAngry, onAngryStateChange]);
 
-  // --- ROBUST ASSET LOADING ---
+  // --- 1. ROBUST ASSET LOADING (ON MOUNT) ---
   useEffect(() => {
     const audio = new Audio(soundFile);
     audio.preload = "auto";
 
-    // Strict readiness check
-    const onCanPlay = () => setIsAudioReady(true);
+    // Attempt to load immediately upon mount
+    audio.load();
 
+    const onCanPlay = () => setIsAudioReady(true);
     audio.addEventListener("canplaythrough", onCanPlay);
     audio.addEventListener("canplay", onCanPlay);
 
-    // Store in ref
     audioObjRef.current = audio;
 
-    // FIX: All initial state updates wrapped in setTimeout to avoid synchronous setState in effect
+    // Use setTimeout to avoid synchronous state update warning
     setTimeout(() => {
-      if (audio.readyState >= 3) {
-        setIsAudioReady(true);
-      }
+      // If it became ready immediately
+      if (audio.readyState >= 3) setIsAudioReady(true);
+
       setActiveAudio(audio);
       setSkyBlobUrl(skyImg);
       setInfernoBlobUrl(infernoImg);
@@ -121,6 +122,28 @@ export default function AnimatedEyes({
       audio.pause();
     };
   }, []);
+
+  // --- 2. MOBILE WARMUP TIMER (30 Seconds) ---
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (isMobile) {
+      // FIX: Wrap synchronous state update in setTimeout to appease ESLint
+      setTimeout(() => setIsMobileWarmup(true), 0);
+
+      // Wait 30 seconds after mount before allowing angry state
+      timer = setTimeout(() => {
+        setIsMobileWarmup(false);
+      }, 30000);
+    } else {
+      // Reset for desktop immediately (wrapped for consistency)
+      setTimeout(() => setIsMobileWarmup(false), 0);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isMobile]);
 
   // --- HOOKS ---
   const {
@@ -196,7 +219,6 @@ export default function AnimatedEyes({
     setShowInferno(false);
     setGlintState("normal");
     setClickCount(0);
-    setIsWaitingMobile(false); // Reset delay state
 
     if (audioObjRef.current) {
       audioObjRef.current.pause();
@@ -218,16 +240,20 @@ export default function AnimatedEyes({
     const audio = audioObjRef.current;
     if (!audio) return;
 
-    // Desktop Check: Only start if strictly ready.
-    // Mobile Check: Bypassed because we guarantee readiness via the 30s buffering timeout.
+    // DESKTOP: Strict Ready Check
     if (!isMobile && !isAudioReady && audio.readyState < 3) {
       showSnackbar?.("در حال بارگذاری صدا...", "info");
+      // Try forcing load if desktop user clicks early
       audio.load();
       return;
     }
 
+    // MOBILE: Warmup Check (Double safety, though handled in click)
+    if (isMobile && isMobileWarmup) {
+      return;
+    }
+
     setIsAngry(true);
-    setIsWaitingMobile(false);
     setClickCount(0);
     stopIdleBehavior();
 
@@ -273,6 +299,7 @@ export default function AnimatedEyes({
     stopIdleBehavior,
     resetNormalState,
     isMobile,
+    isMobileWarmup,
     setPupilOffset1,
     setPupilOffset2,
     showSnackbar,
@@ -280,45 +307,28 @@ export default function AnimatedEyes({
   ]);
 
   const handleEyeClick = useCallback(() => {
-    // If waiting for the 30s timer, ignore clicks
-    if (isAngry || isResetting || isWaitingMobile) return;
+    if (isAngry || isResetting) return;
 
     const newCount = clickCount + 1;
     setClickCount(newCount);
 
     if (newCount < 3) {
       performBlink();
-      // On mobile, try to load audio early on first click
-      if (isMobile && newCount === 1 && audioObjRef.current) {
-        audioObjRef.current.load();
-      }
     } else {
       // --- TRIGGER LOGIC (3rd Click) ---
+
       if (isMobile) {
-        // MOBILE: 30-Second Buffer Delay
-        if (audioObjRef.current) {
-          // 1. Play muted immediately to unlock audio context & buffer
-          audioObjRef.current.volume = 0;
-          audioObjRef.current
-            .play()
-            .catch((e) => console.warn("Pre-buffer failed", e));
-
-          // 2. Set waiting state (Eye continues idle behavior/blinking)
-          setIsWaitingMobile(true);
-          showSnackbar?.("لطفا ۳۰ ثانیه صبر کنید...", "info");
-
-          // 3. Wait 30 seconds
-          setTimeout(() => {
-            // 4. Start sequence: reset audio and go
-            if (audioObjRef.current) {
-              audioObjRef.current.pause();
-              audioObjRef.current.currentTime = 0;
-            }
-            startAngrySequence();
-          }, 30000);
+        // MOBILE LOGIC
+        if (isMobileWarmup) {
+          // Still in 30s warmup period -> BLOCK
+          showSnackbar?.("سیستم در حال آماده‌سازی است (۳۰ ثانیه)...", "info");
+          setClickCount(2); // Keep them close to trigger so they can try again
+        } else {
+          // Warmup passed -> INSTANT START
+          startAngrySequence();
         }
       } else {
-        // DESKTOP: Immediate Execution (with strict check)
+        // DESKTOP LOGIC
         if (
           audioObjRef.current &&
           (isAudioReady || audioObjRef.current.readyState >= 3)
@@ -335,12 +345,12 @@ export default function AnimatedEyes({
     clickCount,
     isAngry,
     isResetting,
-    isWaitingMobile,
+    isMobile,
+    isMobileWarmup,
     performBlink,
     startAngrySequence,
     isAudioReady,
     showSnackbar,
-    isMobile,
   ]);
 
   // Mouse Events
