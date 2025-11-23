@@ -62,15 +62,15 @@ export default function AnimatedEyes({
   const [isLoading, setIsLoading] = useState(false);
   const [chatVisible, setChatVisible] = useState(false);
 
-  // Fixed: Use state for rendering the visualizer prop
+  // Audio State
   const [activeAudio, setActiveAudio] = useState<HTMLAudioElement | null>(null);
+  const [isAudioReady, setIsAudioReady] = useState(false);
 
   // Asset State
   const [skyBlobUrl, setSkyBlobUrl] = useState<string | undefined>(undefined);
   const [infernoBlobUrl, setInfernoBlobUrl] = useState<string | undefined>(
     undefined
   );
-  const [assetsLoaded, setAssetsLoaded] = useState(false);
 
   const [clickCount, setClickCount] = useState(0);
   const [isAngry, setIsAngry] = useState(false);
@@ -81,6 +81,8 @@ export default function AnimatedEyes({
   const [glintState, setGlintState] = useState<"normal" | "flash" | "growing">(
     "normal"
   );
+  // NEW STATE: To block clicks during the 30s mobile wait
+  const [isWaitingMobile, setIsWaitingMobile] = useState(false);
 
   // Notify parent
   useEffect(() => {
@@ -89,40 +91,34 @@ export default function AnimatedEyes({
     }
   }, [isAngry, onAngryStateChange]);
 
-  // --- ROBUST ASSET PRELOADING ---
-
+  // --- ROBUST ASSET LOADING ---
   useEffect(() => {
-    let isMounted = true;
-    const loadAssets = async () => {
-      try {
-        // FIX: Don't fetch blob. Just use the imported path directly.
-        // Vite handles the path resolution including the base URL.
-        const audio = new Audio(soundFile);
-        audio.preload = "auto";
-        // We don't call audio.load() immediately to save bandwidth until interaction
+    const audio = new Audio(soundFile);
+    audio.preload = "auto";
 
-        // Store in ref
-        audioObjRef.current = audio;
+    // Strict readiness check
+    const onCanPlay = () => setIsAudioReady(true);
 
-        // 2. Load Images (Images are fine as blobs or direct, but direct is safer)
-        if (isMounted) {
-          setSkyBlobUrl(skyImg); // Use direct import path
-          setInfernoBlobUrl(infernoImg); // Use direct import path
-          setActiveAudio(audio);
-          setAssetsLoaded(true);
-        }
-      } catch (err) {
-        console.error("Failed to setup assets:", err);
+    audio.addEventListener("canplaythrough", onCanPlay);
+    audio.addEventListener("canplay", onCanPlay);
+
+    // Store in ref
+    audioObjRef.current = audio;
+
+    // FIX: All initial state updates wrapped in setTimeout to avoid synchronous setState in effect
+    setTimeout(() => {
+      if (audio.readyState >= 3) {
+        setIsAudioReady(true);
       }
-    };
-
-    loadAssets();
+      setActiveAudio(audio);
+      setSkyBlobUrl(skyImg);
+      setInfernoBlobUrl(infernoImg);
+    }, 0);
 
     return () => {
-      isMounted = false;
-      if (audioObjRef.current) {
-        audioObjRef.current.pause();
-      }
+      audio.removeEventListener("canplaythrough", onCanPlay);
+      audio.removeEventListener("canplay", onCanPlay);
+      audio.pause();
     };
   }, []);
 
@@ -135,18 +131,21 @@ export default function AnimatedEyes({
     openEyes,
     squintEyes,
   } = useBlink();
+
   const {
     pupilRef: pupilRef1,
     updatePupilPosition: updatePupilPosition1,
     handleMouseMove: handleMouseMove1,
     setPupilOffset: setPupilOffset1,
   } = usePupilMovement({ size, eyeRef: eyeRef1, isFocused });
+
   const {
     pupilRef: pupilRef2,
     updatePupilPosition: updatePupilPosition2,
     handleMouseMove: handleMouseMove2,
     setPupilOffset: setPupilOffset2,
   } = usePupilMovement({ size, eyeRef: eyeRef2, isFocused });
+
   const { inputValue, handleInput, updatePupilToInput } = useInputFocus({
     updatePupilPosition: (x: number, y: number) => {
       if (isAngry || isResetting) return;
@@ -197,14 +196,12 @@ export default function AnimatedEyes({
     setShowInferno(false);
     setGlintState("normal");
     setClickCount(0);
+    setIsWaitingMobile(false); // Reset delay state
 
     if (audioObjRef.current) {
       audioObjRef.current.pause();
       audioObjRef.current.currentTime = 0;
     }
-
-    // Fixed: Do NOT clear activeAudio state here.
-    // We keep the connection alive for the next time.
 
     sequenceTimeouts.current.forEach((t) => clearTimeout(t));
     sequenceTimeouts.current = [];
@@ -219,34 +216,33 @@ export default function AnimatedEyes({
 
   const startAngrySequence = useCallback(() => {
     const audio = audioObjRef.current;
+    if (!audio) return;
 
-    if (!audio) {
-      // Simple check only
-      showSnackbar?.("فایل صوتی یافت نشد", "warning");
+    // Desktop Check: Only start if strictly ready.
+    // Mobile Check: Bypassed because we guarantee readiness via the 30s buffering timeout.
+    if (!isMobile && !isAudioReady && audio.readyState < 3) {
+      showSnackbar?.("در حال بارگذاری صدا...", "info");
+      audio.load();
       return;
     }
 
     setIsAngry(true);
+    setIsWaitingMobile(false);
     setClickCount(0);
     stopIdleBehavior();
 
-    try {
-      audio.currentTime = 0;
-      audio.volume = 1.0;
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((e) => {
-          console.error("Audio play blocked:", e);
-          // Audio context might need to be resumed on user gesture
-          showSnackbar?.(
-            "لطفا دوباره کلیک کنید (مرورگر صدا را مسدود کرد)",
-            "info"
-          );
-        });
-      }
-    } catch (e) {
-      console.error(e);
+    audio.currentTime = 0;
+    audio.volume = 1.0;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((e) => {
+        console.error("Audio play failed:", e);
+        setIsAngry(false);
+        showSnackbar?.("خطا در پخش صدا.", "warning");
+      });
     }
+
     setPupilOffset1(0, 0, "0.5s");
     if (!isMobile) setPupilOffset2(0, 0, "0.5s");
 
@@ -280,33 +276,71 @@ export default function AnimatedEyes({
     setPupilOffset1,
     setPupilOffset2,
     showSnackbar,
+    isAudioReady,
   ]);
 
   const handleEyeClick = useCallback(() => {
-    if (isAngry || isResetting) return;
+    // If waiting for the 30s timer, ignore clicks
+    if (isAngry || isResetting || isWaitingMobile) return;
 
     const newCount = clickCount + 1;
     setClickCount(newCount);
 
     if (newCount < 3) {
       performBlink();
+      // On mobile, try to load audio early on first click
+      if (isMobile && newCount === 1 && audioObjRef.current) {
+        audioObjRef.current.load();
+      }
     } else {
-      // Allow starting if loaded OR if we have the ref (readyState check inside startAngrySequence handles details)
-      if (assetsLoaded && audioObjRef.current) {
-        startAngrySequence();
+      // --- TRIGGER LOGIC (3rd Click) ---
+      if (isMobile) {
+        // MOBILE: 30-Second Buffer Delay
+        if (audioObjRef.current) {
+          // 1. Play muted immediately to unlock audio context & buffer
+          audioObjRef.current.volume = 0;
+          audioObjRef.current
+            .play()
+            .catch((e) => console.warn("Pre-buffer failed", e));
+
+          // 2. Set waiting state (Eye continues idle behavior/blinking)
+          setIsWaitingMobile(true);
+          showSnackbar?.("لطفا ۳۰ ثانیه صبر کنید...", "info");
+
+          // 3. Wait 30 seconds
+          setTimeout(() => {
+            // 4. Start sequence: reset audio and go
+            if (audioObjRef.current) {
+              audioObjRef.current.pause();
+              audioObjRef.current.currentTime = 0;
+            }
+            startAngrySequence();
+          }, 30000);
+        }
       } else {
-        showSnackbar?.("در حال آماده‌سازی صدا...", "info");
-        setClickCount(2);
+        // DESKTOP: Immediate Execution (with strict check)
+        if (
+          audioObjRef.current &&
+          (isAudioReady || audioObjRef.current.readyState >= 3)
+        ) {
+          startAngrySequence();
+        } else {
+          audioObjRef.current?.load();
+          showSnackbar?.("درحال دریافت فایل صوتی...", "warning");
+          setClickCount(2);
+        }
       }
     }
   }, [
     clickCount,
     isAngry,
     isResetting,
+    isWaitingMobile,
     performBlink,
     startAngrySequence,
-    assetsLoaded,
+    isAudioReady,
     showSnackbar,
+    isMobile,
   ]);
 
   // Mouse Events
@@ -544,7 +578,6 @@ export default function AnimatedEyes({
           alignItems: "center",
         }}
       >
-        {/* Fixed: Use state variable 'activeAudio' */}
         <Box
           sx={{
             width: "100%",
