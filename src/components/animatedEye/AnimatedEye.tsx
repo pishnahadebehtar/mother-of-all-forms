@@ -189,7 +189,7 @@ export default function AnimatedEyes({
     setPupilOffset1(0, 0, "0.5s");
     if (!isMobile) setPupilOffset2(0, 0, "0.5s");
     stopIdleBehavior();
-    idleBlinkInterval.current = setInterval(() => doubleBlink(), 2000);
+    idleBlinkInterval.current = setInterval(() => doubleBlink(), 8000);
     idleStartTimeout.current = setTimeout(() => {
       if (!mouseOutRef.current) return;
       const move = () => {
